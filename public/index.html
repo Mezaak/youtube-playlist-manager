@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Create and manage custom YouTube playlists with checklist functionality. Track watched videos with a modern, beautiful interface." />
+
+  <title>YouTube Playlist Manager</title>
+
+  <!-- Google Fonts — Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS v3 via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            surface: {
+              50:  '#f8fafc',
+              100: '#f1f5f9',
+              200: '#e2e8f0',
+              700: '#1e2030',
+              800: '#181a2a',
+              850: '#14162a',
+              900: '#0f1120',
+              950: '#0a0c1a',
+            },
+            accent: {
+              400: '#a78bfa',
+              500: '#8b5cf6',
+              600: '#7c3aed',
+            },
+            youtube: {
+              500: '#ff0000',
+              600: '#cc0000',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <!-- Anime.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.2/anime.min.js"></script>
+
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+
+<body class="bg-surface-950 text-gray-100 font-sans min-h-screen overflow-hidden">
+
+  <!-- ============================================ -->
+  <!-- MAIN LAYOUT: Sidebar + Content              -->
+  <!-- ============================================ -->
+  <div class="flex h-screen">
+
+    <!-- ======================================== -->
+    <!-- SIDEBAR — Playlist Navigation            -->
+    <!-- ======================================== -->
+    <aside id="sidebar" class="w-80 flex-shrink-0 bg-surface-900 border-r border-white/5 flex flex-col">
+
+      <!-- Sidebar Header / Logo -->
+      <div class="p-6 border-b border-white/5">
+        <div class="flex items-center gap-3 mb-1">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-accent-500 to-pink-500 flex items-center justify-center shadow-lg shadow-accent-500/20">
+            <i class="fa-brands fa-youtube text-white text-lg"></i>
+          </div>
+          <div>
+            <h1 class="text-lg font-bold tracking-tight bg-gradient-to-r from-accent-400 to-pink-400 bg-clip-text text-transparent">
+              PlaylistHub
+            </h1>
+            <p class="text-[11px] text-gray-500 font-medium tracking-wide uppercase">YouTube Manager</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Create Playlist Form -->
+      <div class="p-4 border-b border-white/5">
+        <form id="create-playlist-form" class="flex gap-2">
+          <input
+            id="playlist-name-input"
+            type="text"
+            placeholder="New playlist name..."
+            class="flex-1 bg-surface-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-accent-500/50 focus:ring-1 focus:ring-accent-500/20 transition-all"
+            autocomplete="off"
+          />
+          <button
+            type="submit"
+            id="create-playlist-btn"
+            class="w-10 h-10 rounded-lg bg-accent-600 hover:bg-accent-500 text-white flex items-center justify-center transition-all hover:shadow-lg hover:shadow-accent-500/25 active:scale-95"
+            title="Create playlist"
+          >
+            <i class="fa-solid fa-plus text-sm"></i>
+          </button>
+        </form>
+      </div>
+
+      <!-- Playlist List -->
+      <div class="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1" id="playlist-list">
+        <!-- Playlists rendered here by JS -->
+      </div>
+
+      <!-- Sidebar Footer -->
+      <div class="p-4 border-t border-white/5">
+        <p class="text-[11px] text-gray-600 text-center">
+          <i class="fa-solid fa-database mr-1"></i> Data stored locally in SQLite
+        </p>
+      </div>
+    </aside>
+
+    <!-- ======================================== -->
+    <!-- MAIN CONTENT — Videos                    -->
+    <!-- ======================================== -->
+    <main class="flex-1 flex flex-col overflow-hidden">
+
+      <!-- Top Bar -->
+      <header id="content-header" class="px-8 py-5 border-b border-white/5 bg-surface-900/50 backdrop-blur-xl">
+        <!-- Empty state header -->
+        <div id="header-empty" class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">
+            <i class="fa-solid fa-list text-gray-600 text-sm"></i>
+          </div>
+          <p class="text-gray-500 text-sm font-medium">Select a playlist to get started</p>
+        </div>
+
+        <!-- Active playlist header -->
+        <div id="header-active" class="hidden">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-4">
+              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-accent-500/20 to-pink-500/20 border border-accent-500/20 flex items-center justify-center">
+                <i class="fa-solid fa-play text-accent-400 text-sm"></i>
+              </div>
+              <div>
+                <h2 id="active-playlist-name" class="text-xl font-bold tracking-tight"></h2>
+                <p id="active-playlist-stats" class="text-xs text-gray-500 font-medium mt-0.5"></p>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <!-- Progress bar -->
+              <div id="progress-bar-container" class="hidden items-center gap-3">
+                <div class="w-32 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                  <div id="progress-bar-fill" class="h-full bg-gradient-to-r from-accent-500 to-emerald-400 rounded-full transition-all duration-500 ease-out" style="width: 0%"></div>
+                </div>
+                <span id="progress-text" class="text-xs text-gray-500 font-medium tabular-nums">0%</span>
+              </div>
+
+              <!-- View mode toggle: Grid / List -->
+              <div class="toggle-group" id="view-toggle" title="View mode">
+                <button id="view-grid-btn" class="active" title="Grid view">
+                  <i class="fa-solid fa-grid-2"></i>
+                </button>
+                <button id="view-list-btn" title="List view">
+                  <i class="fa-solid fa-list"></i>
+                </button>
+              </div>
+
+              <!-- UI size selector: S / M / L -->
+              <div class="toggle-group" id="size-toggle" title="UI size">
+                <button data-size="sm" title="Small">S</button>
+                <button data-size="md" class="active" title="Medium">M</button>
+                <button data-size="lg" title="Large">L</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Add Video / Import Playlist Section -->
+      <div id="add-video-section" class="hidden px-8 py-4 border-b border-white/5 bg-surface-900/30">
+        <!-- Tab Switcher -->
+        <div class="flex items-center gap-1 mb-3">
+          <button id="tab-add-video" class="tab-btn active px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-accent-600/20 text-accent-400 border border-accent-500/20" data-tab="add-video">
+            <i class="fa-solid fa-plus mr-1.5"></i>Add Video
+          </button>
+          <button id="tab-import-playlist" class="tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-white/5 text-gray-500 border border-transparent hover:text-gray-300 hover:bg-white/10" data-tab="import-playlist">
+            <i class="fa-solid fa-file-import mr-1.5"></i>Import Playlist
+          </button>
+        </div>
+
+        <!-- Tab: Add Single Video -->
+        <div id="tab-content-add-video">
+          <form id="add-video-form" class="flex gap-3 max-w-2xl">
+            <div class="flex-1 relative">
+              <i class="fa-brands fa-youtube absolute left-3 top-1/2 -translate-y-1/2 text-youtube-500/60 text-sm"></i>
+              <input
+                id="video-url-input"
+                type="url"
+                placeholder="Paste YouTube URL here..."
+                class="w-full bg-surface-800 border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-youtube-500/40 focus:ring-1 focus:ring-youtube-500/20 transition-all"
+                autocomplete="off"
+              />
+            </div>
+            <button
+              type="submit"
+              id="add-video-btn"
+              class="px-5 py-2.5 rounded-lg bg-gradient-to-r from-youtube-500 to-pink-600 hover:from-youtube-600 hover:to-pink-700 text-white text-sm font-semibold flex items-center gap-2 transition-all hover:shadow-lg hover:shadow-youtube-500/25 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <i class="fa-solid fa-plus text-xs"></i>
+              Add Video
+            </button>
+          </form>
+          <div id="add-video-error" class="hidden mt-2 text-sm text-red-400 flex items-center gap-2">
+            <i class="fa-solid fa-circle-exclamation text-xs"></i>
+            <span id="add-video-error-text"></span>
+          </div>
+          <div id="add-video-loading" class="hidden mt-2 text-sm text-gray-400 flex items-center gap-2">
+            <i class="fa-solid fa-spinner fa-spin text-xs"></i>
+            <span>Fetching video metadata...</span>
+          </div>
+        </div>
+
+        <!-- Tab: Import YouTube Playlist -->
+        <div id="tab-content-import-playlist" class="hidden">
+          <form id="import-playlist-form" class="flex gap-3 max-w-2xl">
+            <div class="flex-1 relative">
+              <i class="fa-solid fa-list absolute left-3 top-1/2 -translate-y-1/2 text-accent-400/60 text-sm"></i>
+              <input
+                id="import-playlist-url-input"
+                type="url"
+                placeholder="Paste YouTube playlist URL (e.g. youtube.com/playlist?list=...)..."
+                class="w-full bg-surface-800 border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-accent-500/40 focus:ring-1 focus:ring-accent-500/20 transition-all"
+                autocomplete="off"
+              />
+            </div>
+            <button
+              type="submit"
+              id="import-playlist-btn"
+              class="px-5 py-2.5 rounded-lg bg-gradient-to-r from-accent-500 to-indigo-600 hover:from-accent-600 hover:to-indigo-700 text-white text-sm font-semibold flex items-center gap-2 transition-all hover:shadow-lg hover:shadow-accent-500/25 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <i class="fa-solid fa-file-import text-xs"></i>
+              Import All
+            </button>
+          </form>
+          <p class="mt-2 text-[11px] text-gray-600">
+            <i class="fa-solid fa-info-circle mr-1"></i>
+            This will import all videos from the YouTube playlist into the current playlist.
+          </p>
+          <div id="import-playlist-error" class="hidden mt-2 text-sm text-red-400 flex items-center gap-2">
+            <i class="fa-solid fa-circle-exclamation text-xs"></i>
+            <span id="import-playlist-error-text"></span>
+          </div>
+          <div id="import-playlist-loading" class="hidden mt-2 text-sm text-gray-400 flex items-center gap-2">
+            <i class="fa-solid fa-spinner fa-spin text-xs"></i>
+            <span>Importing playlist... This may take a moment.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Video List -->
+      <div class="flex-1 overflow-y-auto custom-scrollbar px-8 py-6" id="video-list-container">
+        <!-- Empty state (no playlist selected) -->
+        <div id="empty-state" class="flex flex-col items-center justify-center h-full text-center">
+          <div class="w-24 h-24 rounded-3xl bg-gradient-to-br from-accent-500/10 to-pink-500/10 border border-accent-500/10 flex items-center justify-center mb-6">
+            <i class="fa-solid fa-film text-4xl text-accent-500/40"></i>
+          </div>
+          <h3 class="text-xl font-bold text-gray-400 mb-2">No playlist selected</h3>
+          <p class="text-sm text-gray-600 max-w-xs">Create a new playlist from the sidebar or select an existing one to start managing your videos.</p>
+        </div>
+
+        <!-- Empty playlist state -->
+        <div id="empty-playlist-state" class="hidden flex-col items-center justify-center h-full text-center">
+          <div class="w-24 h-24 rounded-3xl bg-gradient-to-br from-youtube-500/10 to-pink-500/10 border border-youtube-500/10 flex items-center justify-center mb-6">
+            <i class="fa-solid fa-video text-4xl text-youtube-500/40"></i>
+          </div>
+          <h3 class="text-xl font-bold text-gray-400 mb-2">This playlist is empty</h3>
+          <p class="text-sm text-gray-600 max-w-xs">Paste a YouTube URL above to add your first video to this playlist.</p>
+        </div>
+
+        <!-- Video cards grid -->
+        <div id="video-grid" class="hidden grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+          <!-- Video cards rendered here by JS -->
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- EDIT PLAYLIST MODAL                          -->
+  <!-- ============================================ -->
+  <div id="edit-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden items-center justify-center">
+    <div class="bg-surface-800 border border-white/10 rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+      <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+        <i class="fa-solid fa-pen text-accent-400 text-sm"></i>
+        Rename Playlist
+      </h3>
+      <form id="edit-playlist-form">
+        <input
+          id="edit-playlist-input"
+          type="text"
+          class="w-full bg-surface-900 border border-white/10 rounded-lg px-4 py-3 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-accent-500/50 focus:ring-1 focus:ring-accent-500/20 transition-all mb-4"
+          placeholder="Playlist name..."
+          autocomplete="off"
+        />
+        <div class="flex gap-3 justify-end">
+          <button
+            type="button"
+            id="edit-cancel-btn"
+            class="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 text-sm font-medium transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            id="edit-save-btn"
+            class="px-5 py-2 rounded-lg bg-accent-600 hover:bg-accent-500 text-white text-sm font-semibold transition-all hover:shadow-lg hover:shadow-accent-500/25"
+          >
+            Save
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- DELETE CONFIRM MODAL                         -->
+  <!-- ============================================ -->
+  <div id="delete-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden items-center justify-center">
+    <div class="bg-surface-800 border border-white/10 rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
+          <i class="fa-solid fa-triangle-exclamation text-red-400"></i>
+        </div>
+        <h3 class="text-lg font-bold">Delete Playlist</h3>
+      </div>
+      <p id="delete-modal-text" class="text-sm text-gray-400 mb-6">Are you sure you want to delete this playlist? All videos inside will also be deleted. This action cannot be undone.</p>
+      <div class="flex gap-3 justify-end">
+        <button
+          type="button"
+          id="delete-cancel-btn"
+          class="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 text-sm font-medium transition-all"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          id="delete-confirm-btn"
+          class="px-5 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-all hover:shadow-lg hover:shadow-red-500/25"
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- TOAST NOTIFICATIONS                          -->
+  <!-- ============================================ -->
+  <div id="toast-container" class="fixed bottom-6 right-6 z-[100] flex flex-col gap-2"></div>
+
+  <!-- ============================================ -->
+  <!-- SCRIPTS (modular, ordered)                   -->
+  <!-- ============================================ -->
+  <script src="/js/api.js"></script>
+  <script src="/js/animations.js"></script>
+  <script src="/js/ui.js"></script>
+  <script src="/js/app.js"></script>
+
+</body>
+</html>
